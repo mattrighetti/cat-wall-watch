@@ -1,14 +1,17 @@
 #version 300 es
 
-precision medium float;
+precision mediump float;
 
-// These matriced don't change per vertex so they have to be uniforms
+in vec3 vertPosition;
+in vec2 vertTexCoord;
 uniform mat4 mView;
 uniform mat4 mWorld;
 uniform mat4 mProj;
 
-in vec3 in_pos;
+out vec2 fragTexCoord;
 
-void main() {
-    gl_Position = mProj * mWorld * mView * vec4(in_pos, 1.0);
+void main() 
+{
+    fragTexCoord = vertTexCoord;
+    gl_Position = mProj * mWorld * mView * vec4(vertPosition, 1.0);
 }
