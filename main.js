@@ -1,3 +1,9 @@
+const { mat4, glMatrix } = require("./utils/gl-matrix");
+
+//
+// Object data
+//
+
 var catObj;
 var eyeLeftObj;
 var eyeRightObj;
@@ -16,27 +22,6 @@ var hourHandObjPath     = 'model/clockhand2.obj';
 // Model Textures
 var originalTexture = 'model/texture/black.png';
 var normTexture     = 'model/texture/normal.png';
-
-// Position variables
-var Rx = 0.0;
-var Ry = 0.0;
-var Rz = 0.0;
-
-var gl;
-var program = [];
-
-// Function to clear screen
-function glClear() {
-    gl.clearColor(0.85, 0.85, 0.85, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-}
-
-// Initializes webgl canvas
-function initWebGL() {
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.clearColor(0.85, 1.0, 0.85, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-}
 
 // Returns object variables
 function getVertices() {
@@ -83,6 +68,60 @@ function getTextures() {
     return textures;
 }
 
+
+
+//
+// Shaders dedicated variables (control points)
+//
+
+var Rx = 0.0;
+var Ry = 0.0;
+var Rz = 0.0;
+var matWorldUniformLocation;
+var matViewUniformLocation;
+var matProjectionUniformLocation;
+
+
+
+//
+// Javascript variables
+//
+var projectionMatrix;
+var worldMatrix;
+var viewMatrix;
+
+
+
+
+
+
+// WebGL program and context
+var gl;
+var program;
+
+
+
+//
+// WebGL utils functions
+//
+
+// Function to clear screen
+function glClear() {
+    gl.clearColor(0.85, 0.85, 0.85, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    gl.frontFace(gl.CWW);
+    gl.cullFace(gl.BACK);
+}
+
+// Initializes webgl canvas
+function initWebGL() {
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clearColor(0.85, 1.0, 0.85, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+}
+
 // Loads textures located at imageSrc
 function loadTexture(imageSrc) {
     var texture = gl.createTexture()
@@ -103,29 +142,32 @@ function loadTexture(imageSrc) {
     return [texture, image]
 }
 
-function loadArrayBuffer(array, vertexAttrib) {
+// Loads array data to GPU
+function loadArrayBuffer(array, numVertexAttrib, vertexAttrib) {
     var buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(array), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(vertexAttrib)
-    gl.vertexAttribPointer(vertexAttrib, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(vertexAttrib, numVertexAttrib, gl.FLOAT, false, 0, 0);
     return buffer;
 }
 
 function loadElementArrayBuffer(array) {
-    var indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(array), gl.STATIC_DRAW);
-    return indexBuffer;
+    return buffer;
 }
 
+
+
+
+//
+// Main program
+//
+
 function main() {
-    var minutesHand = 0.0;
-    var hoursHand = 0.0;
-
     var activeTexture = originalTexture;
-
-    initWebGL();
 
     var catVertices = getVertices()
     var catIndices = getIndices()
@@ -133,60 +175,27 @@ function main() {
     var catTextureCoordinates = getTextures();
 
     // Uniforms and attributes
+    bindJsDataToShadersControlPoints()
+    loadModelData();
+
 
     var positionAttributeLocation   = [];
     var normsAttributeLocation      = [];
-    var uvAttributeLocation         = [];
-    var matrixLocation              = [];
-    var textLocation                = [];
-    var normLocation                = [];
 
-    // Fill arrays
-
-    // Perspective matrix
-    var perspectiveMatrix = utils.MakePerspective(0.8, gl.canvas.width/gl.canvas.height, 0.1, 100.0);
     var vaos = [];
 
     for (key in catVertices) {
         vaos[i] = gl.createVertexArray();
         gl.bindVertexArray(vaos[i]);
 
-
-
-        var positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(catVertices[key]), gl.STATIC_DRAW);
-        // TODO check this after logic above is implemented
-        gl.enableVertexAttribArray(positionAttributeLocation...)
-        gl.vertexAttribPointer(positionAttributeLocation..., 3, gl.FLOAT, false, 0, 0);
-
-
-
-
-        var normalBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(catNorms[key]), gl.STATIC_DRAW);
-        // TODO check this after logic above is implemented
-        gl.enableVertexAttribArray(normsAttributeLocation...)
-        gl.vertexAttribPointer(normsAttributeLocation..., 3, gl.FLOAT, false, 0, 0);
-
-
-
+        var positionBuffer = loadArrayBuffer(catVertices[key], 3, positionAttributeLocation[x]);
+        var normalBuffer = loadArrayBuffer(catNorms[key], 3, normsAttributeLocation[x]);
 
         if (key === "catObj" | key === "eyeLeftObj" | key === "eyeRightObj") {
-            var uvBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(catTextureCoordinates[key]), gl.STATIC_DRAW);
-            gl.enableVertexAttribArray(normsAttributeLocation...);
-            gl.vertexAttribPointer(normsAttributeLocation..., 2, gl.FLOAT, false, 0, 0);
+            var uvBuffer = loadArrayBuffer(catTextureCoordinates[key], 2, normsAttributeLocation[x]);
         }
 
-
-
-
-        var indexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(catIndices[key]), gl.STATIC_DRAW);
+        var indexBuffer = loadElementArrayBuffer(catIndices[key]);
     }
 
     var textures = [];
@@ -197,7 +206,7 @@ function main() {
 
     drawScene();
 
-    function drawScene() {
+    var drawScene = function() {
         var canvas = document.getElementById("canvas");
         perspectiveMatrix = utils.MakePerspective(slider.value, gl.canvas.width/gl.canvas.height, 0.1, 100.0);
         
@@ -234,11 +243,6 @@ function main() {
                     console.error("Unexpected key in drawScene function")
             }
 
-            var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, worldMatrices...);
-            var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
-
-            var normalMatrix = utils.invertMatrix(utils.transposeMatrix(viewWorldMatrix));
-
             // GLSL data exchange
             // END GLSL data exchange
 
@@ -249,7 +253,7 @@ function main() {
         window.requestAnimationFrame(drawScene);
     }
 
-    function animate() {
+    var animate = function() {
         var now = Date();
         var dateComponents = { hours: now.getHours(), minutes: now.getMinutes() }
     
@@ -277,22 +281,99 @@ function main() {
 
 
 
-async function initCanvas() {
+function initCanvas() {
     var canvas = document.getElementById("canvas")
 
     window.addEventListener("keyup", keyFunctions.keyUp, false);
     window.addEventListener("keydown", keyFunctions.keyDown, false);
 
+    // Get WebGL context
     gl = canvas.getContext("webgl2");
     if (!gl) {
         document.write("GL context not opened");
         return;
     }
 
+    // Set minimum canvas width
     canvas.width = window.innerWidth - 430;
-    canvas.height = window.innerWidth - 32;
+    canvas.height = window.innerWidth - 430;
+
+    // Clear screen with color
+    initWebGL();
+
+    //
+    // Shaders setup
+    //
+
+    var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+
+    gl.shaderSource(vertexShader, vertexShaderText);
+    gl.shaderSource(fragmentShader, fragmentShaderText);
+
+    gl.compileShader(vertexShader);
+    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+        console.error("Error compiling vertex shader.");
+        return;
+    }
+
+    gl.compileShader(fragmentShader);
+    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+        console.error("Error compiling fragment shader");
+        return;
+    }
+
+    //
+    // Program setup
+    //
+
+    program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error("Error linking program");
+        return;
+    }
+
+    gl.validateProgram(program);
+    if (!gl.getProgramParamter(program, gl.VALIDATE_STATUS)) {
+        console.error("Error validating program");
+        return;
+    }
+
+    gl.useProgram(program);
+
+    glClear()
+
+    //
+    // Make stuff happen
+    //
 
     main();
 }
 
-window.onload = init;
+function loadModelData() {
+    worldMatrix = new Float32Array();
+    viewMatrix = new Float32Array();
+    projectionMatrix = new Float32Array();
+    mat4.identity(worldMatrix);
+    mat4.lookAt(viewMatrix, [0, 0, -5], [0, 0, 0], [0, 1, 0]);
+    mat4.perspective(projectionMatrix, glMatrix.toRadian(45), canvas.width / canvas.height, 0.1, 1000.0);
+}
+
+// Binds javascript variables to shaders control points
+function bindJsDataToShadersControlPoints() {
+    matWorldUniformLocation = gl.getUniformLocation(program, 'mWorld');
+    matViewUniformLocation = gl.getUniformLocation(program, 'mView');
+    matProjectionUniformLocation = gl.getUniformLocation(program, 'mProj');
+}
+
+// Pushes data to bound shaders variables
+function sendDataToShaders() {
+    gl.uniformMatrix4fv(matWorldUniformLocation, gl.FALSE, worldMatrix);
+    gl.uniformMatrix4fv(matProjectionUniformLocation, gl.FALSE, viewMatrix);
+    gl.uniformMatrix4fv(matProjectionUniformLocation, gl.FALSE, projectionMatrix);
+}
+
+window.onload = initCanvas;
