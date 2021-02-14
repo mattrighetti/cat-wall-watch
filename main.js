@@ -94,8 +94,10 @@ var matWorldUniformLocation;
 var matViewUniformLocation;
 var matProjectionUniformLocation;
 
-var positionAttribLocation;
-var texCoordAttribLocation;
+var vs_positionAttribLocation;
+var vs_texCoordAttribLocation;
+var vs_matrixLocation;
+
 
 var catWorldMatrices;
 
@@ -271,12 +273,12 @@ function main() {
     for (key in catVertices) {
         gl.bindVertexArray(vao[key]);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferObject[key]);
-        gl.vertexAttribPointer(positionAttribLocation, 3, gl.FLOAT, gl.FALSE, 0, 0);
-        gl.enableVertexAttribArray(positionAttribLocation);
+        gl.vertexAttribPointer(vs_positionAttribLocation, 3, gl.FLOAT, gl.FALSE, 0, 0);
+        gl.enableVertexAttribArray(vs_positionAttribLocation);
         // Load norms here
         gl.bindBuffer(gl.ARRAY_BUFFER, textureBufferObject[key]);
-        gl.vertexAttribPointer(texCoordAttribLocation, 2, gl.FLOAT, gl.FALSE, 0, 0);
-        gl.enableVertexAttribArray(texCoordAttribLocation);
+        gl.vertexAttribPointer(vs_texCoordAttribLocation, 2, gl.FLOAT, gl.FALSE, 0, 0);
+        gl.enableVertexAttribArray(vs_texCoordAttribLocation);
     }
     
     //
@@ -335,27 +337,20 @@ async function loadObjFilesAndRun() {
 }
 
 function loadInitialModelData() {
-    worldMatrix = new Float32Array(16);
-    viewMatrix = new Float32Array(16);
-    projectionMatrix = new Float32Array(16);
-    mat4.identity(worldMatrix);
-    mat4.lookAt(viewMatrix, [0, 0, Cx], [0, 0, Cy], [0, Cz, 0]);
-    mat4.perspective(projectionMatrix, glMatrix.toRadian(45), canvas.width / canvas.height, 0.1, 100.0);
+    
 }
 
 // Binds javascript variables to shaders control points
 function bindJsDataToShadersControlPoints() {
-    positionAttributeLocation       = gl.getAttribLocation(program,  'vertPosition');
-    texCoordAttribLocation          = gl.getAttribLocation(program,  'vertTexCoord');
-    matWorldUniformLocation         = gl.getUniformLocation(program, 'mWorld');
-    matViewUniformLocation          = gl.getUniformLocation(program, 'mView');
-    matProjectionUniformLocation    = gl.getUniformLocation(program, 'mProj');
+    vs_positionAttribLocation  = gl.getAttribLocation(program,  'vertPosition');
+    vs_texCoordAttribLocation  = gl.getAttribLocation(program,  'vertTexCoord');
+    vs_matrixLocation          = gl.getAttribLocation(program,  'matrixLocation');
 }
 
 // Pushes data to bound shaders variables
 function sendDataToShaders() {
-    gl.uniformMatrix4fv(matViewUniformLocation,       gl.FALSE, viewMatrix);
-    gl.uniformMatrix4fv(matProjectionUniformLocation, gl.FALSE, projectionMatrix);
+
+    gl.uniformMatrix4fv(vs_matrixLocation, gl.FALSE, viewMatrix);
 }
 
 function sendObjWorldMatrixToShader(objKey) {
@@ -377,8 +372,6 @@ function updateWorldMatricesValues() {
     catWorldMatrices["tailObj"]         = utils.MakeWorld(0.0, 0.0, 0.0, 0.0,0.0,0.0,1.0);
     catWorldMatrices["minuteHandObj"]   = utils.MakeWorld(0.0, 0.0, -10.0, 0.0,0.0,0.0,1.0);
     catWorldMatrices["hoursHandObj"]    = utils.MakeWorld(0.0, 0.0, -15.0, 0.0,0.0,0.0,1.0);
-
-    mat4.lookAt(viewMatrix, [0, 0, Cx], [0, Cy, 0], [0, Cz, 0]);
 }
 
 
