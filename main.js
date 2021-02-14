@@ -68,9 +68,18 @@ function getTextures() {
     textures["eyeLeftObj"] = eyeLeftObj.textures;
     textures["eyeRightObj"] = eyeRightObj.textures;
     textures["minuteHandObj"] = minuteHandObj.textures;
-    textures["hoursHandObj"] = hoursHandObj.textures;
-    textures["tailObj"] = tailObj.textures;
-    console.log("Textures", textures);
+    textures["hoursHandObj"] = [];
+    textures["tailObj"] = [];
+
+    for (var i = 0; i < 814; i++) {
+        textures["tailObj"][i] = 0.0;
+    }
+
+    for (var i = 0; i < (432); i += 2) {
+        textures["hoursHandObj"][i] = 0.65;
+        textures["hoursHandObj"][i+1] = 0.39;
+    }
+
     return textures;
 }
 
@@ -100,6 +109,7 @@ var vs_vertPosition;
 var vs_vertTexCoord;
 var vs_normPosition;
 var vs_matrixLocation;
+var vs_nMatrixLocation;
 
 
 var catWorldMatrices;
@@ -299,8 +309,10 @@ function main() {
         
         glClear();
 
-        gl.bindTexture(gl.TEXTURE_2D, catObjTexture);
+        gl.bindTexture(gl.TEXTURE_2D, catObjNormTex);
         gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, catObjTexture);
+        gl.activeTexture(gl.TEXTURE1);
 
         for (key in catIndices) {
             sendObjWorldMatrixToShader(key);
@@ -351,16 +363,19 @@ function loadImage(url, callback) {
 
 // Binds javascript variables to shaders control points
 function bindJsDataToShadersControlPoints() {
-    vs_vertPosition = gl.getAttribLocation(program,  'vertPosition');
-    vs_normPosition = gl.getAttribLocation(program,  'normPosition');
-    vs_vertTexCoord = gl.getAttribLocation(program,  'vertTexCoord');
-    vs_matrixLocation = gl.getUniformLocation(program, 'matrixLocation');
+    vs_vertPosition    = gl.getAttribLocation(program,  'vertPosition');
+    vs_normPosition    = gl.getAttribLocation(program,  'normPosition');
+    vs_vertTexCoord    = gl.getAttribLocation(program,  'vertTexCoord');
+    vs_matrixLocation  = gl.getUniformLocation(program, 'matrixLocation');
+    vs_nMatrixLocation = gl.getUniformLocation(program, 'nMatrixLocation');
 }
 
 function sendObjWorldMatrixToShader(objKey) {
     var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, catWorldMatrices[objKey]);
     var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
+    var normalMatrix = utils.invertMatrix(utils.transposeMatrix(viewWorldMatrix));
     gl.uniformMatrix4fv(vs_matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
+    gl.uniformMatrix4fv(vs_nMatrixLocation, gl.FALSE, utils.transposeMatrix(normalMatrix));
 }
 
 function updateViewMatrix() {
