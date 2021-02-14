@@ -87,7 +87,9 @@ var minRotZ = 0.0
 // Hours rotation variables
 var hrsRotZ = 0.0
 // Tail rotation
-var tailRotZ = 0.0
+var tailRotZ = -30.0
+// Eyes rotation
+var eyeRotX = -30.0
 
 var vs_positionAttribLocation;
 var vs_texCoordAttribLocation;
@@ -281,6 +283,7 @@ function main() {
 
     function drawScene() {
         updateViewMatrix();
+        updateGlobalPositionValues();
         updateWorldMatricesValues();
         
         glClear();
@@ -332,10 +335,6 @@ function loadImage(url, callback) {
     image.src = url;
 }
 
-function loadInitialModelData() {
-    
-}
-
 // Binds javascript variables to shaders control points
 function bindJsDataToShadersControlPoints() {
     vs_positionAttribLocation = gl.getAttribLocation(program,  'vertPosition');
@@ -352,16 +351,38 @@ function sendObjWorldMatrixToShader(objKey) {
 function updateViewMatrix() {
     viewMatrix = utils.MakeView(Cx, Cy, Cz, 0.0, 0.0);
 }
+
+var inverterFunction = 1;
+var counter = 0
+function updateGlobalPositionValues() {
+    var date = new Date();
+    var minutes = date.getMinutes();
+    var hours = date.getHours();
+
+    let minutesDegree = (360.0 / 60.0 * minutes) % 360.0;
+    let hoursDegree = (360.0 / 12.0 * (hours % 12.0)) % 360.0;
+    let precisionHoursDegree = (360.0 / 12.0) / 60.0 * minutes;
+
+    if (counter == 60) {
+        counter = 0;
+        inverterFunction = inverterFunction * -1;
+    }
+    counter += 1;
+    
+    tailRotZ = tailRotZ + (inverterFunction * 1.0);
+    eyeRotX = eyeRotX + (inverterFunction * 1.0);
+    hrsRotZ = hoursDegree + precisionHoursDegree;
+    minRotZ = minutesDegree;
+}
  
 function updateWorldMatricesValues() {
     catWorldMatrices["catObj"]        = utils.MakeWorld(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-    catWorldMatrices["eyeLeftObj"]    = utils.MakeWorld(0.007117, 0.047, 0.018971, 0.0,0.0,0.0, 1.0);
-    catWorldMatrices["eyeRightObj"]   = utils.MakeWorld(-0.009095, 0.047, 0.018732, 0.0,0.0,0.0, 1.0);
+    catWorldMatrices["eyeLeftObj"]    = utils.MakeWorld(0.007117, 0.047, 0.018971, eyeRotX,0.0,0.0, 1.0);
+    catWorldMatrices["eyeRightObj"]   = utils.MakeWorld(-0.009095, 0.047, 0.018732, eyeRotX,0.0,0.0, 1.0);
     catWorldMatrices["tailObj"]       = utils.MakeWorld(-0.005182, -0.014557, 0.012112, 0.0, 0.0, tailRotZ, 1.0);
     catWorldMatrices["minuteHandObj"] = utils.MakeWorld(0.0, 0.0, 0.00111111, 0.0, 0.0, minRotZ, 1.0);
     catWorldMatrices["hoursHandObj"]  = utils.MakeWorld(0.0, 0.0, 0.00111111, 0.0, 0.0, hrsRotZ, 1.0);
 }
-
 
 //
 // ENTCYPOINT
@@ -456,4 +477,8 @@ var move_camera = {
     down: () => {
         Cy=Cy+0.01;
     }
+}
+
+var move_cat = {
+    rotateX
 }
