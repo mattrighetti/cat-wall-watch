@@ -7,7 +7,7 @@ var eyeLeftObj;
 var eyeRightObj;
 var tailObj;
 var minuteHandObj;
-var hourHandObj;
+var hoursHandObj;
 
 // Models OBJs
 var catObjPath          = 'model/body.obj';
@@ -15,12 +15,11 @@ var eyeLeftObjPath      = 'model/eye.obj';
 var eyeRightObjPath     = 'model/eye.obj';
 var tailObjPath         = 'model/tail.obj';
 var minuteHandObjPath   = 'model/clockhand1.obj';
-var hourHandObjPath     = 'model/clockhand2.obj';
+var hoursHandObjPath     = 'model/clockhand2.obj';
 
 // Model Textures
 var originalTexture = 'model/texture/black.png';
 var normTexture     = 'model/texture/normal.png';
-
 var texturePng;
 
 // Returns object variables
@@ -31,7 +30,8 @@ function getVertices() {
     vertices["eyeRightObj"] = eyeRightObj.vertices;
     vertices["tailObj"] = tailObj.vertices;
     vertices["minuteHandObj"] = minuteHandObj.vertices;
-    vertices["hoursHandObj"] = hourHandObj.vertices;
+    vertices["hoursHandObj"] = hoursHandObj.vertices;
+    console.log("Vertices", vertices);
     return vertices;
 }
 
@@ -43,7 +43,7 @@ function getNormals() {
     normals["eyeRightObj"] = eyeRightObj.vertexNormals;
     normals["tailObj"] = tailObj.vertexNormals;
     normals["minuteHandObj"] = minuteHandObj.vertexNormals;
-    normals["hoursHandObj"] = hourHandObj.vertexNormals;
+    normals["hoursHandObj"] = hoursHandObj.vertexNormals;
     return normals;
 }
 
@@ -55,7 +55,8 @@ function getIndices() {
     indices["eyeRightObj"] = eyeRightObj.indices;
     indices["tailObj"] = tailObj.indices;
     indices["minuteHandObj"] = minuteHandObj.indices;
-    indices["hoursHandObj"] = hourHandObj.indices;
+    indices["hoursHandObj"] = hoursHandObj.indices;
+    console.log("Indices", indices);
     return indices;
 }
 
@@ -66,33 +67,27 @@ function getTextures() {
     textures["eyeLeftObj"] = eyeLeftObj.textures;
     textures["eyeRightObj"] = eyeRightObj.textures;
     textures["minuteHandObj"] = minuteHandObj.textures;
-    textures["hoursHandObj"] = hourHandObj.textures;
+    textures["hoursHandObj"] = hoursHandObj.textures;
+    textures["tailObj"] = tailObj.textures;
+    console.log("Textures", textures);
     return textures;
 }
-
-function initWorldMatrices() {
-    var wMatrices = {};
-    wMatrices["catObj"] = new Float32Array(16);
-    wMatrices["eyeLeftObj"] = new Float32Array(16);
-    wMatrices["eyeRightObj"] = new Float32Array(16);
-    wMatrices["tailObj"] = new Float32Array(16);
-    wMatrices["minuteHandObj"] = new Float32Array(16);
-    wMatrices["hoursHandObj"] = new Float32Array(16);
-    return wMatrices;
-}
-
-
 
 //
 // Shaders dedicated variables (control points)
 //
 
-var Cx = 2.0;
+// Camera view
+var Cx = 0.0;
 var Cy = 0.0;
-var Cz = 1.0;
-var matWorldUniformLocation;
-var matViewUniformLocation;
-var matProjectionUniformLocation;
+var Cz = 0.2;
+
+// Minute rotation variables
+var minRotZ = 0.0
+// Hours rotation variables
+var hrsRotZ = 0.0
+// Tail rotation
+var tailRotZ = 0.0
 
 var vs_positionAttribLocation;
 var vs_texCoordAttribLocation;
@@ -105,8 +100,6 @@ var catWorldMatrices;
 // Javascript variables
 //
 var perspectiveMatrix;
-var projectionMatrix;
-var worldMatrix;
 var viewMatrix;
 
 
@@ -236,7 +229,6 @@ function loadElementArrayBuffer(array) {
 //
 // Main program
 //
-
 function main() {
 
     var vao = {};
@@ -246,11 +238,14 @@ function main() {
     var catNorms = getNormals()
     var catTextureCoordinates = getTextures();
 
-    catWorldMatrices = initWorldMatrices();
+    catWorldMatrices = {};
 
     var vertexBufferObject = {};
     var textureBufferObject = {};
     var normsBufferObject = {};
+
+    perspectiveMatrix = utils.MakePerspective(60, gl.canvas.width / gl.canvas.height, 0.1, 100.0);
+    viewMatrix = utils.MakeView(Cx, Cy, Cz, 0.0, 0.0);
 
     bindJsDataToShadersControlPoints()
 
@@ -267,9 +262,7 @@ function main() {
         loadElementArrayBuffer(catIndices[key]);
     }
 
-    //
     // Enable vertices
-    //
     for (key in catVertices) {
         gl.bindVertexArray(vao[key]);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferObject[key]);
@@ -281,20 +274,15 @@ function main() {
         gl.enableVertexAttribArray(vs_texCoordAttribLocation);
     }
     
-    //
     // Enable textures
-    //
     var catObjTexture = loadTexture();
-
-    // Uniforms and attributes
-    loadInitialModelData();
-    sendDataToShaders();
 
     drawScene();
 
     function drawScene() {
+        updateViewMatrix();
         updateWorldMatricesValues();
-        sendDataToShaders();
+        
         glClear();
 
         gl.bindTexture(gl.TEXTURE_2D, catObjTexture);
@@ -315,8 +303,8 @@ async function loadObjFilesAndRun() {
     var objData = await utils.get_objstr(catObjPath)
     catObj = new OBJ.Mesh(objData);
 
-    objData = await utils.get_objstr(hourHandObjPath);
-    hourHandObj = new OBJ.Mesh(objData);
+    objData = await utils.get_objstr(hoursHandObjPath);
+    hoursHandObj = new OBJ.Mesh(objData);
 
     objData = await utils.get_objstr(minuteHandObjPath);
     minuteHandObj = new OBJ.Mesh(objData);
@@ -336,27 +324,6 @@ async function loadObjFilesAndRun() {
     });
 }
 
-function loadInitialModelData() {
-    
-}
-
-// Binds javascript variables to shaders control points
-function bindJsDataToShadersControlPoints() {
-    vs_positionAttribLocation  = gl.getAttribLocation(program,  'vertPosition');
-    vs_texCoordAttribLocation  = gl.getAttribLocation(program,  'vertTexCoord');
-    vs_matrixLocation          = gl.getAttribLocation(program,  'matrixLocation');
-}
-
-// Pushes data to bound shaders variables
-function sendDataToShaders() {
-
-    gl.uniformMatrix4fv(vs_matrixLocation, gl.FALSE, viewMatrix);
-}
-
-function sendObjWorldMatrixToShader(objKey) {
-    gl.uniformMatrix4fv(matWorldUniformLocation, gl.FALSE, catWorldMatrices[objKey]);
-}
-
 function loadImage(url, callback) {
     var image = new Image();
     image.onload = () => {
@@ -365,13 +332,34 @@ function loadImage(url, callback) {
     image.src = url;
 }
 
+function loadInitialModelData() {
+    
+}
+
+// Binds javascript variables to shaders control points
+function bindJsDataToShadersControlPoints() {
+    vs_positionAttribLocation = gl.getAttribLocation(program,  'vertPosition');
+    vs_texCoordAttribLocation = gl.getAttribLocation(program,  'vertTexCoord');
+    vs_matrixLocation         = gl.getUniformLocation(program, 'matrixLocation');
+}
+
+function sendObjWorldMatrixToShader(objKey) {
+    var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, catWorldMatrices[objKey]);
+    var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
+    gl.uniformMatrix4fv(vs_matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
+}
+
+function updateViewMatrix() {
+    viewMatrix = utils.MakeView(Cx, Cy, Cz, 0.0, 0.0);
+}
+ 
 function updateWorldMatricesValues() {
-    catWorldMatrices["catObj"]          = utils.MakeWorld(0.0, 0.0, 0.0, 0.0,0.0,0.0,1.0);
-    catWorldMatrices["eyeLeftObj"]      = utils.MakeWorld(-5.0, 5.0, -5.0, 0.0,0.0,0.0,1.0);
-    catWorldMatrices["eyeRightObj"]     = utils.MakeWorld(5.0, 5.0, -5.0, 0.0,0.0,0.0,1.0);
-    catWorldMatrices["tailObj"]         = utils.MakeWorld(0.0, 0.0, 0.0, 0.0,0.0,0.0,1.0);
-    catWorldMatrices["minuteHandObj"]   = utils.MakeWorld(0.0, 0.0, -10.0, 0.0,0.0,0.0,1.0);
-    catWorldMatrices["hoursHandObj"]    = utils.MakeWorld(0.0, 0.0, -15.0, 0.0,0.0,0.0,1.0);
+    catWorldMatrices["catObj"]        = utils.MakeWorld(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    catWorldMatrices["eyeLeftObj"]    = utils.MakeWorld(0.007117, 0.047, 0.018971, 0.0,0.0,0.0, 1.0);
+    catWorldMatrices["eyeRightObj"]   = utils.MakeWorld(-0.009095, 0.047, 0.018732, 0.0,0.0,0.0, 1.0);
+    catWorldMatrices["tailObj"]       = utils.MakeWorld(-0.005182, -0.014557, 0.012112, 0.0, 0.0, tailRotZ, 1.0);
+    catWorldMatrices["minuteHandObj"] = utils.MakeWorld(0.0, 0.0, 0.00111111, 0.0, 0.0, minRotZ, 1.0);
+    catWorldMatrices["hoursHandObj"]  = utils.MakeWorld(0.0, 0.0, 0.00111111, 0.0, 0.0, hrsRotZ, 1.0);
 }
 
 
@@ -390,8 +378,8 @@ async function initCanvas() {
     window.addEventListener("keydown", keyFunctions.keyDown, false);
 
     // Set minimum canvas width
-    canvas.width = window.innerWidth - 430;
-    canvas.height = window.innerWidth - 430;
+    canvas.width = 700;
+    canvas.height = 700;
 
     await initWebGL();
 
@@ -404,22 +392,22 @@ var keyFunctions = {
     keyDown: (e) => {
         switch(e.keyCode) {
             case 37: //left arrow
-                Cz=Cz-0.1;
+                move_camera.left();
                 break;
             case 39: //right arrow
-                Cz=Cz+0.1;
+                move_camera.right();
                 break;
             case 38: //up arrow
-                Cx-0.1;
+                move_camera.forward();
                 break;
             case 40: //down arrow
-                Cx+0.1;
+                move_camera.backward();
                 break;
             case 90: //z
-                Cy=Cy+0.1;
+                move_camera.up();
                 break;
             case 88: //x
-                Cy=Cy-0.1;
+                move_camera.down();
                 break;
             case 65: //a
                 rvy=rvy-0.1*0.01;
@@ -446,5 +434,26 @@ var keyFunctions = {
                 y=y+0.1*0.01;
                 break;
         }
+    }
+}
+
+var move_camera = {
+    forward: () => {
+        Cz=Cz+0.01;
+    },
+    backward: () => {
+        Cz=Cz-0.01;
+    },
+    right: () => {
+        Cx=Cx+0.01;
+    },
+    left: () => {
+        Cx=Cx-0.01;
+    },
+    up: () => {
+        Cy=Cy-0.01;
+    },
+    down: () => {
+        Cy=Cy+0.01;
     }
 }
