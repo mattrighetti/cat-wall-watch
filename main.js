@@ -21,6 +21,7 @@ var hoursHandObjPath     = 'model/clockhand2.obj';
 var originalTexture = 'model/texture/black.png';
 var normTexture     = 'model/texture/normal.png';
 var texturePng;
+var normTexPng;
 
 // Returns object variables
 function getVertices() {
@@ -81,6 +82,10 @@ function getTextures() {
 var Cx = 0.0;
 var Cy = 0.0;
 var Cz = 0.2;
+var Celevation = 0.0;
+var Cangle = 0.0;
+var rvx = 0.0;
+var rvy = 0.0;
 
 // Minute rotation variables
 var minRotZ = 0.0
@@ -91,8 +96,9 @@ var tailRotZ = -30.0
 // Eyes rotation
 var eyeRotX = -30.0
 
-var vs_positionAttribLocation;
-var vs_texCoordAttribLocation;
+var vs_vertPosition;
+var vs_vertTexCoord;
+var vs_normPosition;
 var vs_matrixLocation;
 
 
@@ -193,7 +199,7 @@ async function initWebGL() {
 }
 
 // Loads textures located at imageSrc
-function loadTexture() {
+function loadTexture(png) {
     var texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -204,7 +210,7 @@ function loadTexture() {
     gl.texImage2D(
         gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
         gl.UNSIGNED_BYTE,
-        texturePng
+        png
     );
     gl.bindTexture(gl.TEXTURE_2D, null);
     return texture;
@@ -257,9 +263,8 @@ function main() {
     for (key in catVertices) {
         vao[key] = gl.createVertexArray();
         gl.bindVertexArray(vao[key]);
-
         vertexBufferObject[key] = loadArrayBuffer(catVertices[key]);
-        // Load norms here
+        normsBufferObject[key] = loadArrayBuffer(catNorms[key]);
         textureBufferObject[key] = loadArrayBuffer(catTextureCoordinates[key]);
         loadElementArrayBuffer(catIndices[key]);
     }
@@ -267,17 +272,23 @@ function main() {
     // Enable vertices
     for (key in catVertices) {
         gl.bindVertexArray(vao[key]);
+
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferObject[key]);
-        gl.vertexAttribPointer(vs_positionAttribLocation, 3, gl.FLOAT, gl.FALSE, 0, 0);
-        gl.enableVertexAttribArray(vs_positionAttribLocation);
-        // Load norms here
+        gl.vertexAttribPointer(vs_vertPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
+        gl.enableVertexAttribArray(vs_vertPosition);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, normsBufferObject[key]);
+        gl.vertexAttribPointer(vs_normPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
+        gl.enableVertexAttribArray(vs_normPosition);
+
         gl.bindBuffer(gl.ARRAY_BUFFER, textureBufferObject[key]);
-        gl.vertexAttribPointer(vs_texCoordAttribLocation, 2, gl.FLOAT, gl.FALSE, 0, 0);
-        gl.enableVertexAttribArray(vs_texCoordAttribLocation);
+        gl.vertexAttribPointer(vs_vertTexCoord, 2, gl.FLOAT, gl.FALSE, 0, 0);
+        gl.enableVertexAttribArray(vs_vertTexCoord);
     }
     
-    // Enable textures
-    var catObjTexture = loadTexture();
+    // Load textures
+    var catObjTexture = loadTexture(texturePng);
+    var catObjNormTex = loadTexture(normTexPng);
 
     drawScene();
 
@@ -321,9 +332,12 @@ async function loadObjFilesAndRun() {
     objData = await utils.get_objstr(tailObjPath);
     tailObj = new OBJ.Mesh(objData);
 
-    loadImage("model/texture/black.png", (err, img) => {
-        texturePng = img;
-        main();
+    loadImage(originalTexture, (err, img1) => {
+        texturePng = img1;
+        loadImage(normTexture, (err, img2) => {
+            normTexPng = img2;
+            main();
+        })
     });
 }
 
@@ -337,9 +351,10 @@ function loadImage(url, callback) {
 
 // Binds javascript variables to shaders control points
 function bindJsDataToShadersControlPoints() {
-    vs_positionAttribLocation = gl.getAttribLocation(program,  'vertPosition');
-    vs_texCoordAttribLocation = gl.getAttribLocation(program,  'vertTexCoord');
-    vs_matrixLocation         = gl.getUniformLocation(program, 'matrixLocation');
+    vs_vertPosition = gl.getAttribLocation(program,  'vertPosition');
+    vs_normPosition = gl.getAttribLocation(program,  'normPosition');
+    vs_vertTexCoord = gl.getAttribLocation(program,  'vertTexCoord');
+    vs_matrixLocation = gl.getUniformLocation(program, 'matrixLocation');
 }
 
 function sendObjWorldMatrixToShader(objKey) {
@@ -349,7 +364,7 @@ function sendObjWorldMatrixToShader(objKey) {
 }
 
 function updateViewMatrix() {
-    viewMatrix = utils.MakeView(Cx, Cy, Cz, 0.0, 0.0);
+    viewMatrix = utils.MakeView(Cx, Cy, Cz, Celevation, Cangle);
 }
 
 var inverterFunction = 1;
@@ -419,16 +434,16 @@ var keyFunctions = {
                 move_camera.right();
                 break;
             case 38: //up arrow
-                move_camera.forward();
-                break;
-            case 40: //down arrow
-                move_camera.backward();
-                break;
-            case 90: //z
                 move_camera.up();
                 break;
-            case 88: //x
+            case 40: //down arrow
                 move_camera.down();
+                break;
+            case 90: //z
+                
+                break;
+            case 88: //x
+                
                 break;
             case 65: //a
                 rvy=rvy-0.1*0.01;
@@ -437,10 +452,10 @@ var keyFunctions = {
                 rvy=rvy+0.1*0.01;
                 break;
             case 87: //w
-                rvx=rvx+0.1;
+                move_camera.backward();
                 break;
             case 83: //s
-                rvx=rvx-0.1;
+                move_camera.forward();
                 break;
             case 74: //j
                 z=z-0.1*0.1;
@@ -460,25 +475,21 @@ var keyFunctions = {
 
 var move_camera = {
     forward: () => {
-        Cz=Cz+0.01;
+        Cz=Cz + 0.01;
     },
     backward: () => {
-        Cz=Cz-0.01;
+        Cz=Cz - 0.01;
     },
     right: () => {
-        Cx=Cx+0.01;
+        Cangle = Cangle + 1;
     },
     left: () => {
-        Cx=Cx-0.01;
+        Cangle = Cangle - 1;
     },
     up: () => {
-        Cy=Cy-0.01;
+        Celevation = Celevation + 1;
     },
     down: () => {
-        Cy=Cy+0.01;
+        Celevation = Celevation - 1;
     }
-}
-
-var move_cat = {
-    rotateX
 }

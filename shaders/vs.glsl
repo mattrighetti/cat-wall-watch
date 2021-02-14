@@ -3,7 +3,9 @@
 precision mediump float;
 
 in vec3 vertPosition;
+in vec3 normPosition;
 in vec2 vertTexCoord;
+
 uniform mat4 matrixLocation;
 
 out vec2 fragTexCoord;
