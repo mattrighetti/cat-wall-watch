@@ -67,19 +67,6 @@ function getTextures() {
     textures["catObj"] = catObj.textures;
     textures["eyeLeftObj"] = eyeLeftObj.textures;
     textures["eyeRightObj"] = eyeRightObj.textures;
-    textures["minuteHandObj"] = minuteHandObj.textures;
-    textures["hoursHandObj"] = [];
-    textures["tailObj"] = [];
-
-    for (var i = 0; i < 814; i++) {
-        textures["tailObj"][i] = 0.0;
-    }
-
-    for (var i = 0; i < (432); i += 2) {
-        textures["hoursHandObj"][i] = 0.65;
-        textures["hoursHandObj"][i+1] = 0.39;
-    }
-
     return textures;
 }
 
@@ -127,7 +114,7 @@ var viewMatrix;
 
 // WebGL program and context
 var gl;
-var program;
+var program = {};
 
 
 
@@ -159,24 +146,44 @@ async function initWebGL() {
     //
     var vertexShader = gl.createShader(gl.VERTEX_SHADER);
     var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    var vertexShader2 = gl.createShader(gl.VERTEX_SHADER);
+    var fragmentShader2 = gl.createShader(gl.FRAGMENT_SHADER);
 
     await utils.loadFiles([shaderDir+ 'vs.glsl', shaderDir+'fs.glsl'], (shaders) => {
         gl.shaderSource(vertexShader, shaders[0]);
         gl.shaderSource(fragmentShader, shaders[1]);
+        program["catObj"] = createProgram(vertexShader, fragmentShader);
+        program["eyeLeftObj"] = program["catObj"]
+        program["eyeRightObj"] = program["catObj"]
     });
 
-    gl.compileShader(vertexShader);
-    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+    await utils.loadFiles([shaderDir+ 'vs_untextured.glsl', shaderDir+'fs_untextured.glsl'], (shaders) => {
+        gl.shaderSource(vertexShader2, shaders[0]);
+        gl.shaderSource(fragmentShader2, shaders[1]);
+        program["tailObj"] = createProgram(vertexShader2, fragmentShader2);
+        program["hoursHandObj"] = program["tailObj"]
+        program["minuteHandObj"] = program["tailObj"]
+    });
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    gl.frontFace(gl.CCW);
+    gl.cullFace(gl.BACK);
+}
+
+function createProgram(vs, fs) {
+    gl.compileShader(vs);
+    if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
         console.error("Error compiling vertex shader.");
-        var error_log = gl.getShaderInfoLog(vertexShader);
+        var error_log = gl.getShaderInfoLog(vs);
         console.log(error_log);
         return;
     }
 
-    gl.compileShader(fragmentShader);
-    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+    gl.compileShader(fs);
+    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
         console.error("Error compiling fragment shader");
-        var error_log = gl.getShaderInfoLog(fragmentShader);
+        var error_log = gl.getShaderInfoLog(fs);
         console.log(error_log);
         return;
     }
@@ -184,10 +191,9 @@ async function initWebGL() {
     //
     // Program setup
     //
-
-    program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
+    var program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         console.error("Error linking program");
@@ -200,12 +206,7 @@ async function initWebGL() {
         return;
     }
 
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
-    gl.frontFace(gl.CCW);
-    gl.cullFace(gl.BACK);
-
-    gl.useProgram(program);
+    return program;
 }
 
 // Loads textures located at imageSrc
@@ -261,26 +262,35 @@ function main() {
     var vertexBufferObject = {};
     var textureBufferObject = {};
     var normsBufferObject = {};
+    var catColor = {
+        "tailObj": [1.0, 1.0, 1.0, 1.0],
+        "minuteHandObj": [0.0,0.0,0.0,0.0],
+        "hoursHandObj": [0.0,0.0,0.0,0.0]
+    }
 
     perspectiveMatrix = utils.MakePerspective(60, gl.canvas.width / gl.canvas.height, 0.1, 100.0);
     viewMatrix = utils.MakeView(Cx, Cy, Cz, 0.0, 0.0);
-
-    bindJsDataToShadersControlPoints()
 
     //
     // Create vertex buffers
     //
     for (key in catVertices) {
+        bindJsDataToShadersControlPoints(key)
         vao[key] = gl.createVertexArray();
         gl.bindVertexArray(vao[key]);
         vertexBufferObject[key] = loadArrayBuffer(catVertices[key]);
         normsBufferObject[key] = loadArrayBuffer(catNorms[key]);
-        textureBufferObject[key] = loadArrayBuffer(catTextureCoordinates[key]);
+        if (key === "tailObj" | key === "minuteHandObj" | key === "hoursHandObj") {
+            textureBufferObject[key] = loadArrayBuffer(catColor[key])
+        } else {
+            textureBufferObject[key] = loadArrayBuffer(catTextureCoordinates[key]);
+        }
         loadElementArrayBuffer(catIndices[key]);
     }
 
     // Enable vertices
     for (key in catVertices) {
+        bindJsDataToShadersControlPoints(key)
         gl.bindVertexArray(vao[key]);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferObject[key]);
@@ -291,9 +301,13 @@ function main() {
         gl.vertexAttribPointer(vs_normPosition, 3, gl.FLOAT, gl.FALSE, 0, 0);
         gl.enableVertexAttribArray(vs_normPosition);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, textureBufferObject[key]);
-        gl.vertexAttribPointer(vs_vertTexCoord, 2, gl.FLOAT, gl.FALSE, 0, 0);
-        gl.enableVertexAttribArray(vs_vertTexCoord);
+        if (key === "tailObj" | key === "minuteHandObj" | key === "hoursHandObj") {
+            
+        } else {
+            gl.bindBuffer(gl.ARRAY_BUFFER, textureBufferObject[key]);
+            gl.vertexAttribPointer(vs_vertTexCoord, 2, gl.FLOAT, gl.FALSE, 0, 0);
+            gl.enableVertexAttribArray(vs_vertTexCoord);
+        }
     }
     
     // Load textures
@@ -315,6 +329,7 @@ function main() {
         gl.activeTexture(gl.TEXTURE1);
 
         for (key in catIndices) {
+            bindJsDataToShadersControlPoints(key)
             sendObjWorldMatrixToShader(key);
             gl.bindVertexArray(vao[key]);
             gl.drawElements(gl.TRIANGLES, catIndices[key].length, gl.UNSIGNED_SHORT, 0);
@@ -362,20 +377,25 @@ function loadImage(url, callback) {
 }
 
 // Binds javascript variables to shaders control points
-function bindJsDataToShadersControlPoints() {
-    vs_vertPosition    = gl.getAttribLocation(program,  'vertPosition');
-    vs_normPosition    = gl.getAttribLocation(program,  'normPosition');
-    vs_vertTexCoord    = gl.getAttribLocation(program,  'vertTexCoord');
-    vs_matrixLocation  = gl.getUniformLocation(program, 'matrixLocation');
-    vs_nMatrixLocation = gl.getUniformLocation(program, 'nMatrixLocation');
+function bindJsDataToShadersControlPoints(key) {
+    vs_vertPosition    = gl.getAttribLocation(program[key],  'vertPosition');
+    vs_normPosition    = gl.getAttribLocation(program[key],  'normPosition');
+    vs_vertTexCoord    = gl.getAttribLocation(program[key],  'vertTexCoord');
+    vs_matrixLocation  = gl.getUniformLocation(program[key], 'matrixLocation');
+    vs_nMatrixLocation = gl.getUniformLocation(program[key], 'nMatrixLocation');
+    vs_color           = gl.getUniformLocation(program[key],  'color')
 }
 
 function sendObjWorldMatrixToShader(objKey) {
     var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, catWorldMatrices[objKey]);
     var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
     var normalMatrix = utils.invertMatrix(utils.transposeMatrix(viewWorldMatrix));
+    gl.useProgram(program[objKey]);
     gl.uniformMatrix4fv(vs_matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
     gl.uniformMatrix4fv(vs_nMatrixLocation, gl.FALSE, utils.transposeMatrix(normalMatrix));
+    if (key === "tailObj" | key === "minuteHandObj" | key === "hoursHandObj") {
+        gl.uniform4fv(vs_color, [0.0, 0.0, 0.0, 0.0])
+    }
 }
 
 function updateViewMatrix() {
