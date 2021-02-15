@@ -72,7 +72,8 @@ var colors = {
     "tailObj":       [0.0, 0.0, 0.0],
     "minuteHandObj": [1.0, 1.0, 1.0],
     "hoursHandObj":  [1.0, 1.0, 1.0],
-    "secondHandObj": [1.0, 1.0, 1.0]
+    "secondHandObj": [1.0, 1.0, 1.0],
+    "background":    [0.85, 0.85, 0.85]
 };
 
 //
@@ -122,8 +123,8 @@ var program = {};
 //
 
 // Function to clear screen
-function glClear() {
-    gl.clearColor(0.85, 0.85, 0.85, 1.0);
+function glClear([R, G, B]) {
+    gl.clearColor(R, G, B, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 }
 
@@ -310,7 +311,7 @@ function main() {
         updateGlobalPositionValues();
         updateWorldMatricesValues();
         
-        glClear();
+        glClear(colors.background);
 
         gl.bindTexture(gl.TEXTURE_2D, catObjNormTex);
         gl.activeTexture(gl.TEXTURE0);
@@ -437,10 +438,12 @@ async function initCanvas() {
     colorPickerMinutes = document.querySelector("#minuteHandObj");
     colorPickerHours = document.querySelector("#hoursHandObj");
     colorPickerTail = document.querySelector("#tailObj");
+    colorPickerBackground = document.querySelector("#background");
     colorPickerSeconds.addEventListener("input", updateFirst, false);
     colorPickerMinutes.addEventListener("input", updateFirst, false);
     colorPickerHours.addEventListener("input", updateFirst, false);
     colorPickerTail.addEventListener("input", updateFirst, false);
+    colorPickerBackground.addEventListener("input", updateFirst, false);
 
     // Set minimum canvas width
     canvas.width = 900;
