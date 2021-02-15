@@ -6,6 +6,7 @@ var catObj;
 var eyeLeftObj;
 var eyeRightObj;
 var tailObj;
+var secondHandObj;
 var minuteHandObj;
 var hoursHandObj;
 
@@ -15,7 +16,7 @@ var eyeLeftObjPath      = 'model/eye.obj';
 var eyeRightObjPath     = 'model/eye.obj';
 var tailObjPath         = 'model/tail.obj';
 var minuteHandObjPath   = 'model/clockhand1.obj';
-var hoursHandObjPath     = 'model/clockhand2.obj';
+var hoursHandObjPath    = 'model/clockhand2.obj';
 
 // Model Textures
 var originalTexture = 'model/texture/black.png';
@@ -30,6 +31,7 @@ function getVertices() {
     vertices["eyeLeftObj"] = eyeLeftObj.vertices;
     vertices["eyeRightObj"] = eyeRightObj.vertices;
     vertices["tailObj"] = tailObj.vertices;
+    vertices["secondHandObj"] = secondHandObj.vertices;
     vertices["minuteHandObj"] = minuteHandObj.vertices;
     vertices["hoursHandObj"] = hoursHandObj.vertices;
     return vertices;
@@ -51,6 +53,7 @@ function getIndices() {
     indices["eyeLeftObj"] = eyeLeftObj.indices;
     indices["eyeRightObj"] = eyeRightObj.indices;
     indices["tailObj"] = tailObj.indices;
+    indices["secondHandObj"] = secondHandObj.indices;
     indices["minuteHandObj"] = minuteHandObj.indices;
     indices["hoursHandObj"] = hoursHandObj.indices;
     return indices;
@@ -68,8 +71,9 @@ function getTextures() {
 var colors = {
     "tailObj":       [0.0, 0.0, 0.0],
     "minuteHandObj": [1.0, 1.0, 1.0],
-    "hoursHandObj":  [1.0, 1.0, 1.0]
-}
+    "hoursHandObj":  [1.0, 1.0, 1.0],
+    "secondHandObj": [1.0, 1.0, 1.0]
+};
 
 //
 // Shaders dedicated variables (control points)
@@ -84,6 +88,7 @@ var Cangle = 0.0;
 var rvx = 0.0;
 var rvy = 0.0;
 
+var secRotZ = 0.0;
 // Minute rotation variables
 var minRotZ = 0.0
 // Hours rotation variables
@@ -93,7 +98,7 @@ var tailRotZ = -30.0
 // Eyes rotation
 var eyeRotX = -30.0
 
-var catWorldMatrices;
+var catWorldMatrices = {};
 
 //
 // Javascript variables
@@ -140,6 +145,7 @@ async function initWebGL() {
     //
     var vertexShader = gl.createShader(gl.VERTEX_SHADER);
     var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+
     var vertexShader2 = gl.createShader(gl.VERTEX_SHADER);
     var fragmentShader2 = gl.createShader(gl.FRAGMENT_SHADER);
 
@@ -173,11 +179,12 @@ async function initWebGL() {
             vs_normPosition: gl.getAttribLocation(newProgram,  'normPosition'),
             vs_matrixLocation: gl.getUniformLocation(newProgram,  'matrixLocation'),
             vs_nMatrixLocation: gl.getUniformLocation(newProgram,  'nMatrixLocation'),
-            vs_color: gl.getUniformLocation(newProgram,  'color')
+            fs_color: gl.getUniformLocation(newProgram,  'color')
         };
 
         program.tailObj = programObj;
         program.hoursHandObj = programObj;
+        program.secondHandObj = programObj;
         program.minuteHandObj = programObj;
     });
 
@@ -247,16 +254,12 @@ function loadTexture(png) {
 // Main program
 //
 function main() {
-
-    var vao = {};
-
     var catVertices = getVertices()
     var catIndices = getIndices()
     var catNorms = getNormals()
     var catTextureCoordinates = getTextures();
 
-    catWorldMatrices = {};
-
+    var vao = {};
     var vertexBufferObject = {};
     var textureBufferObject = {};
     var normsBufferObject = {};
@@ -336,6 +339,9 @@ async function loadObjFilesAndRun() {
     objData = await utils.get_objstr(minuteHandObjPath);
     minuteHandObj = new OBJ.Mesh(objData);
 
+    objData = await utils.get_objstr(hoursHandObjPath);
+    secondHandObj = new OBJ.Mesh(objData);
+
     objData = await utils.get_objstr(eyeLeftObjPath);
     eyeLeftObj = new OBJ.Mesh(objData);
 
@@ -362,21 +368,14 @@ function loadImage(url, callback) {
     image.src = url;
 }
 
-function valCol(hex) {
-    R = parseInt(hex.substring(0,2), 16) / 255;
-    G = parseInt(hex.substring(2,4), 16) / 255;
-    B = parseInt(hex.substring(4,6), 16) / 255;
-    return [R,G,B]
-}
-
 function sendObjWorldMatrixToShader(objKey) {
     var viewWorldMatrix = utils.multiplyMatrices(viewMatrix, catWorldMatrices[objKey]);
     var projectionMatrix = utils.multiplyMatrices(perspectiveMatrix, viewWorldMatrix);
     var normalMatrix = utils.invertMatrix(utils.transposeMatrix(viewWorldMatrix));
     gl.uniformMatrix4fv(program[objKey].vs_matrixLocation, gl.FALSE, utils.transposeMatrix(projectionMatrix));
     gl.uniformMatrix4fv(program[objKey].vs_nMatrixLocation, gl.FALSE, utils.transposeMatrix(normalMatrix));
-    if (key === "tailObj" | key === "minuteHandObj" | key === "hoursHandObj") {
-        gl.uniform3fv(program[objKey].vs_color, colors[key])
+    if (key === "tailObj" | key === "minuteHandObj" | key === "hoursHandObj" | key === "secondHandObj") {
+        gl.uniform3fv(program[objKey].fs_color, colors[key])
     } 
 }
 
@@ -388,9 +387,11 @@ var inverterFunction = 1;
 var counter = 0
 function updateGlobalPositionValues() {
     var date = new Date();
+    var seconds = date.getSeconds();
     var minutes = date.getMinutes();
     var hours = date.getHours();
 
+    let secondsDegree = (360.0 / 60.0 * seconds) % 360.0;
     let minutesDegree = (360.0 / 60.0 * minutes) % 360.0;
     let hoursDegree = (360.0 / 12.0 * (hours % 12.0)) % 360.0;
     let precisionHoursDegree = (360.0 / 12.0) / 60.0 * minutes;
@@ -405,6 +406,7 @@ function updateGlobalPositionValues() {
     eyeRotX = eyeRotX + (inverterFunction * 1.0);
     hrsRotZ = hoursDegree + precisionHoursDegree;
     minRotZ = minutesDegree;
+    secRotZ = secondsDegree;
 }
  
 function updateWorldMatricesValues() {
@@ -414,6 +416,7 @@ function updateWorldMatricesValues() {
     catWorldMatrices["tailObj"]       = utils.MakeWorld(-0.005182, -0.014557, 0.012112, 0.0, 0.0, tailRotZ, 1.0);
     catWorldMatrices["minuteHandObj"] = utils.MakeWorld(0.0, 0.0, 0.00111111, 0.0, 0.0, minRotZ, 1.0);
     catWorldMatrices["hoursHandObj"]  = utils.MakeWorld(0.0, 0.0, 0.00111111, 0.0, 0.0, hrsRotZ, 1.0);
+    catWorldMatrices["secondHandObj"] = utils.MakeWorld(0.0, 0.0, 0.00111111, 0.0, 0.0, secRotZ, 1.0);
 }
 
 //
@@ -430,9 +433,18 @@ async function initCanvas() {
 
     window.addEventListener("keydown", keyFunctions.keyDown, false);
 
+    colorPickerSeconds = document.querySelector("#secondHandObj");
+    colorPickerMinutes = document.querySelector("#minuteHandObj");
+    colorPickerHours = document.querySelector("#hoursHandObj");
+    colorPickerTail = document.querySelector("#tailObj");
+    colorPickerSeconds.addEventListener("input", updateFirst, false);
+    colorPickerMinutes.addEventListener("input", updateFirst, false);
+    colorPickerHours.addEventListener("input", updateFirst, false);
+    colorPickerTail.addEventListener("input", updateFirst, false);
+
     // Set minimum canvas width
-    canvas.width = 700;
-    canvas.height = 700;
+    canvas.width = 900;
+    canvas.height = 900;
 
     await initWebGL();
 
@@ -509,4 +521,15 @@ var move_camera = {
     down: () => {
         Celevation = Celevation - 1;
     }
+}
+
+function updateFirst(event) {
+    colors[event.target.id] = hexToRGB(event.target.value);
+}
+
+function hexToRGB(hex) {
+    R = parseInt(hex.substring(1,3), 16) / 255;
+    G = parseInt(hex.substring(3,5), 16) / 255;
+    B = parseInt(hex.substring(5,7), 16) / 255;
+    return [R,G,B];
 }
