@@ -2,10 +2,11 @@
     
 precision highp float;
 
-uniform vec4 fs_color;
+uniform vec3 color;
 
 out vec4 outColor;
+
 void main() 
 {   
-    outColor = fs_color;
+    outColor = vec4(color, 1.0);
 }
